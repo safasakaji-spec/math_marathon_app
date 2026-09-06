@@ -30,6 +30,12 @@ class MathMarathonApp extends StatelessWidget {
   }
 }
 
+// تخزين بيانات اللاعب وأفضل سكور
+class UserData {
+  static String name = '';
+  static int bestScore = 0;
+}
+
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({Key? key}) : super(key: key);
 
@@ -61,7 +67,22 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 style: TextStyle(fontSize: 14, color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 40),
+              if (UserData.name.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(15),
+                    boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                  ),
+                  child: Text(
+                    'آخر بطل: ${UserData.name} | أفضل سكور: 🏆 ${UserData.bestScore}',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.deepPurple),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 30),
               TextField(
                 controller: _nameController,
                 decoration: InputDecoration(
@@ -83,10 +104,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 onPressed: () {
                   String name = _nameController.text.trim();
                   if (name.isEmpty) name = 'بطل الرياضيات';
-                  Navigator.pushReplacement(
+                  UserData.name = name;
+                  setState(() {});
+                  Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => GameScreen(userName: name)),
-                  );
+                    MaterialPageRoute(builder: (context) => const GameScreen()),
+                  ).then((_) {
+                    setState(() {});
+                  });
                 },
                 child: const Text('ابدأ الماراثون 🚀', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               ),
@@ -99,8 +124,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 }
 
 class GameScreen extends StatefulWidget {
-  final String userName;
-  const GameScreen({Key? key, required this.userName}) : super(key: key);
+  const GameScreen({Key? key}) : super(key: key);
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -113,11 +137,8 @@ class _GameScreenState extends State<GameScreen> {
   String operator = '+';
   int correctAnswer = 0;
   
-  int currentStreak = 0;
-  int bestStreak = 0;
-  
+  int currentScore = 0;
   List<int> options = [];
-  bool? isCorrectAnswer;
 
   @override
   void initState() {
@@ -126,10 +147,6 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _generateNewQuestion() {
-    setState(() {
-      isCorrectAnswer = null;
-    });
-
     num1 = _random.nextInt(30) - 15;
     num2 = _random.nextInt(30) - 15;
     
@@ -155,34 +172,69 @@ class _GameScreenState extends State<GameScreen> {
     }
     options = optionSet.toList();
     options.shuffle();
+    setState(() {});
   }
 
   void _checkAnswer(int selectedOption) {
-    setState(() {
-      if (selectedOption == correctAnswer) {
-        isCorrectAnswer = true;
-        currentStreak++;
-        if (currentStreak > bestStreak) {
-          bestStreak = currentStreak;
-        }
-      } else {
-        isCorrectAnswer = false;
-        currentStreak = 0;
+    if (selectedOption == correctAnswer) {
+      currentScore++;
+      if (currentScore > UserData.bestScore) {
+        UserData.bestScore = currentScore;
       }
-    });
+      _generateNewQuestion();
+    } else {
+      // الخسارة وإظهار رسالة التشجيع
+      _showGameOverDialog();
+    }
+  }
 
-    Future.delayed(const Duration(milliseconds: 1200), () {
-      if (mounted) {
-        _generateNewQuestion();
-      }
-    });
+  void _showGameOverDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('انتهت اللعبة! 💔', textAlign: TextAlign.center),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'عادي يا بطل! ستجيب أفضل المرة القادمة وتجيب نتيجة أعلى بكثير 💪✨',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 15),
+            Text(
+              'نقاطك في هذه الجولة: $currentScore',
+              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepPurple, fontSize: 18),
+            ),
+          ],
+        ),
+        actions: [
+          Center(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepPurple,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              ),
+              onPressed: () {
+                Navigator.pop(context); // إغلاق النافذة
+                Navigator.pop(context); // العودة للرئيسية
+              },
+              child: const Text('العودة للرئيسية 🏠'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('أهلاً بك، ${widget.userName} ✨'),
+        title: Text('البطل: ${UserData.name} ✨'),
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
         centerTitle: true,
@@ -193,10 +245,9 @@ class _GameScreenState extends State<GameScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildScoreCard('التوالي الحالي 🔥', '$currentStreak', Colors.orange),
-                _buildScoreCard('الأفضل (Best) 🏆', '$bestStreak', Colors.amber),
+                _buildScoreCard('النقاط الحالية 🔥', '$currentScore', Colors.orange),
               ],
             ),
             const SizedBox(height: 40),
@@ -213,31 +264,18 @@ class _GameScreenState extends State<GameScreen> {
                 children: [
                   const Text('كم النتيجة؟', style: TextStyle(color: Colors.grey, fontSize: 16)),
                   const SizedBox(height: 15),
-                  Text(
-                    '($num1) $operator ($num2)',
-                    style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.deepPurple),
+                  // ضبط اتجاه عرض السؤال ليكون من اليسار لليمين حصراً
+                  Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: Text(
+                      '($num1) $operator ($num2)',
+                      style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.deepPurple),
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-            if (isCorrectAnswer != null)
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: isCorrectAnswer! ? Colors.green.shade100 : Colors.red.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  isCorrectAnswer! ? '🎉 بطل! إجابة صحيحة' : '❌ أوتش! إجابة خاطئة',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: isCorrectAnswer! ? Colors.green.shade800 : Colors.red.shade800,
-                  ),
-                ),
-              ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 40),
             ...options.map((option) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 6.0),
               child: SizedBox(
@@ -250,7 +288,7 @@ class _GameScreenState extends State<GameScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  onPressed: isCorrectAnswer == null ? () => _checkAnswer(option) : null,
+                  onPressed: () => _checkAnswer(option),
                   child: Text('$option', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                 ),
               ),
@@ -263,7 +301,7 @@ class _GameScreenState extends State<GameScreen> {
 
   Widget _buildScoreCard(String title, String value, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
