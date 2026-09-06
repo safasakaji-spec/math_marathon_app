@@ -23,14 +23,13 @@ class MathMarathonApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.purple,
         fontFamily: 'Cairo',
-        scaffoldBackgroundColor: const Color(0xFFF3E5F5), // لون خلفية هادئ وكيوت
+        scaffoldBackgroundColor: const Color(0xFFF3E5F5),
       ),
       home: const WelcomeScreen(),
     );
   }
 }
 
-// 1. شاشة الترحيب وإدخال اسم المستخدم
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({Key? key}) : super(key: key);
 
@@ -99,7 +98,6 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
   }
 }
 
-// 2. شاشة اللعبة والماراثون
 class GameScreen extends StatefulWidget {
   final String userName;
   const GameScreen({Key? key, required this.userName}) : super(key: key);
@@ -115,8 +113,8 @@ class _GameScreenState extends State<GameScreen> {
   String operator = '+';
   int correctAnswer = 0;
   
-  int currentStreak = 0; // الأسئلة المتتالية الصحيحة الحالية
-  int bestStreak = 0;    // أفضل رقم قياسي
+  int currentStreak = 0;
+  int bestStreak = 0;
   
   List<int> options = [];
   bool? isCorrectAnswer;
@@ -129,28 +127,25 @@ class _GameScreenState extends State<GameScreen> {
 
   void _generateNewQuestion() {
     setState(() {
-  isCorrectAnswer = null;
-})
-    // توليد أعداد صحيحة (موجبة وسالبة)
-    num1 = _random.nextInt(30) - 15; // من -15 إلى 15
+      isCorrectAnswer = null;
+    });
+
+    num1 = _random.nextInt(30) - 15;
     num2 = _random.nextInt(30) - 15;
     
     List<String> ops = ['+', '-', '×'];
     operator = ops[_random.nextInt(ops.length)];
 
-    // منع القسمة على صفر أو نتائج معقدة جداً، واختيار العمليات بذكاء
     if (operator == '+') {
       correctAnswer = num1 + num2;
     } else if (operator == '-') {
       correctAnswer = num1 - num2;
     } else {
-      // لنجعل الضرب معقولاً في الماراثون
       num1 = _random.nextInt(12) - 6;
       num2 = _random.nextInt(12) - 6;
       correctAnswer = num1 * num2;
     }
 
-    // توليد خيارات متعددة للإجابة
     Set<int> optionSet = {correctAnswer};
     while (optionSet.length < 4) {
       int wrongAnswer = correctAnswer + (_random.nextInt(10) - 5);
@@ -172,11 +167,10 @@ class _GameScreenState extends State<GameScreen> {
         }
       } else {
         isCorrectAnswer = false;
-        currentStreak = 0; // خسارة السلسلة إذا أخطأ
+        currentStreak = 0;
       }
     });
 
-    // الانتظار قليلاً ثم الانتقال للسؤال التالي تلقائياً
     Future.delayed(const Duration(milliseconds: 1200), () {
       if (mounted) {
         _generateNewQuestion();
@@ -198,7 +192,6 @@ class _GameScreenState extends State<GameScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // عداد الماراثون (السلسلة الحالية وأفضل نتيجة)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
@@ -207,8 +200,6 @@ class _GameScreenState extends State<GameScreen> {
               ],
             ),
             const SizedBox(height: 40),
-            
-            // صندوق السؤال
             Container(
               padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 20),
               decoration: BoxDecoration(
@@ -230,8 +221,6 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
             const SizedBox(height: 20),
-
-            // رسالة التقييم الفوري (صح أو غلط)
             if (isCorrectAnswer != null)
               Container(
                 padding: const EdgeInsets.all(10),
@@ -248,10 +237,7 @@ class _GameScreenState extends State<GameScreen> {
                   ),
                 ),
               ),
-
             const SizedBox(height: 20),
-
-            // خيارات الإجابة
             ...options.map((option) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 6.0),
               child: SizedBox(
@@ -281,7 +267,7 @@ class _GameScreenState extends State<GameScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 5)],
+        boxShadow: [const BoxShadow(color: Colors.black12, blurRadius: 5)],
       ),
       child: Column(
         children: [
