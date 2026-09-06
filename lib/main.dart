@@ -1,8 +1,11 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await LeaderboardData.loadLeaderboard();
   runApp(const MathMarathonApp());
 }
 
@@ -33,12 +36,27 @@ class PlayerScore {
   String name;
   int score;
   PlayerScore({required this.name, required this.score});
+
+  Map<String, dynamic> toJson() => {'name': name, 'score': score};
+  factory PlayerScore.fromJson(Map<String, dynamic> json) =>
+      PlayerScore(name: json['name'], score: json['score']);
 }
 
 class LeaderboardData {
   static List<PlayerScore> players = [];
 
-  static void updateScore(String name, int score) {
+  static Future<void> loadLeaderboard() async {
+    final prefs = await SharedPreferences.getInstance();
+    List<String>? savedList = prefs.getStringList('saved_leaderboard');
+    if (savedList != null) {
+      players = savedList.map((item) {
+        List<String> parts = item.split('|');
+        return PlayerScore(name: parts[0], score: int.parse(parts[1]));
+      }).toList();
+    }
+  }
+
+  static Future<void> updateScore(String name, int score) async {
     name = name.trim();
     var existingPlayer = players.firstWhere(
       (p) => p.name.toLowerCase() == name.toLowerCase(),
@@ -53,6 +71,10 @@ class LeaderboardData {
       }
     }
     players.sort((a, b) => b.score.compareTo(a.score));
+    
+    final prefs = await SharedPreferences.getInstance();
+    List<String> listToSave = players.map((p) => '${p.name}|${p.score}').toList();
+    await prefs.setStringList('saved_leaderboard', listToSave);
   }
 
   static List<PlayerScore> getTopPlayers() {
@@ -152,6 +174,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                 ),
                 onPressed: () {
+                  SystemSound.play(SystemSoundType.click);
                   String name = _nameController.text.trim();
                   if (name.isEmpty) name = 'لاعب مجهول';
                   
@@ -182,7 +205,6 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   final Random _random = Random();
-  final AudioPlayer _audioPlayer = AudioPlayer();
   
   int num1 = 0;
   int num2 = 0;
@@ -194,32 +216,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   late AnimationController _fireworksController;
 
-  // ثيمات ألوان احترافية تتغير كل 5 أسئلة
-  final List<Map<String, dynamic>> themes = [
-    {
-      'bg': const Color(0xFFF3E5F5),
-      'primary': Colors.deepPurple,
-      'card': Colors.white,
-      'name': 'المستوى البنفسجي الساحر'
-    },
-    {
-      'bg': const Color(0xFFE0F7FA),
-      'primary': Colors.teal.shade800,
-      'card': Colors.white,
-      'name': 'مستوى المحيط الهادئ'
-    },
-    {
-      'bg': const Color(0xFFFFF9C4),
-      'primary': Colors.amber.shade900,
-      'card': Colors.white,
-      'name': 'مستوى الطاقة المشرقة'
-    },
-    {
-      'bg': const Color(0xFFE8F5E9),
-      'primary': Colors.green.shade800,
-      'card': Colors.white,
-      'name': 'مستوى الغابة المنعشة'
-    },
+  final List<Map<String, dynamic>> levels = [
+    {'minScore': 0, 'name': 'مقبول', 'bg': const Color(0xFFF3E5F5), 'primary': Colors.deepPurple},
+    {'minScore': 5, 'name': 'جيد', 'bg': const Color(0xFFE0F7FA), 'primary': Colors.teal.shade800},
+    {'minScore': 10, 'name': 'جيد جداً', 'bg': const Color(0xFFFFF9C4), 'primary': Colors.amber.shade900},
+    {'minScore': 15, 'name': 'ممتاز', 'bg': const Color(0xFFE8F5E9), 'primary': Colors.green.shade800},
+    {'minScore': 20, 'name': 'رائع', 'bg': const Color(0xFFFFCCBC), 'primary': Colors.deepOrange.shade800},
+    {'minScore': 25, 'name': 'عبقري', 'bg': const Color(0xFFE1BEE7), 'primary': Colors.purple.shade900},
+    {'minScore': 30, 'name': 'أسطورة الرياضيات', 'bg': const Color(0xFFB2EBF2), 'primary': Colors.cyan.shade900},
+    {'minScore': 35, 'name': 'بطل خارق', 'bg': const Color(0xFFDCEDC8), 'primary': Colors.lightGreen.shade900},
+    {'minScore': 40, 'name': 'عالم عبقري', 'bg': const Color(0xFFFFECB3), 'primary': Colors.brown.shade700},
+    {'minScore': 45, 'name': 'بروفيسور الرياضيات العظيم', 'bg': const Color(0xFFD1C4E9), 'primary': Colors.indigo.shade900},
   ];
 
   @override
@@ -235,30 +242,25 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   @override
   void dispose() {
     _fireworksController.dispose();
-    _audioPlayer.dispose();
     super.dispose();
   }
 
-  // دالة لتشغيل الأصوات الاحترافية من الإنترنت مباشرة (بدون الحاجة لملفات محلية معقدة)
-  void _playClickSound() async {
-    try {
-      await _audioPlayer.play(UrlSource('https://www.soundjay.com/buttons/button-29.mp3'));
-    } catch (_) {}
-  }
-
-  void _playCheeringSound() async {
-    try {
-      // صوت تصفيق احتفالي عند الخسارة
-      await _audioPlayer.play(UrlSource('https://www.soundjay.com/human/applause-01.mp3'));
-    } catch (_) {}
-  }
-
-  Map<String, dynamic> getCurrentTheme() {
-    int themeIndex = (currentScore ~/ 5) % themes.length;
-    return themes[themeIndex];
+  Map<String, dynamic> getCurrentLevelInfo() {
+    var currentLevel = levels.first;
+    for (var lvl in levels) {
+      if (currentScore >= lvl['minScore']) {
+        currentLevel = lvl;
+      }
+    }
+    return currentLevel;
   }
 
   void _generateNewQuestion() {
+    if (currentScore >= 50) {
+      _showVictoryDialog();
+      return;
+    }
+
     List<String> ops = ['+', '-', '×', '÷'];
     operator = ops[_random.nextInt(ops.length)];
 
@@ -294,16 +296,88 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   void _checkAnswer(int selectedOption) {
-    _playClickSound();
+    SystemSound.play(SystemSoundType.click);
+
     if (selectedOption == correctAnswer) {
       currentScore++;
       LeaderboardData.updateScore(widget.userName, currentScore);
       _generateNewQuestion();
     } else {
       LeaderboardData.updateScore(widget.userName, currentScore);
-      _playCheeringSound(); // تشغيل صوت التصفيق عند الخسارة
+      HapticFeedback.heavyImpact();
+      SystemSound.play(SystemSoundType.alert);
       _showGameOverDialog();
     }
+  }
+
+  void _showVictoryDialog() {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierLabel: 'Victory',
+      pageBuilder: (context, anim1, anim2) => const SizedBox.shrink(),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return ScaleTransition(
+          scale: CurvedAnimation(parent: animation, curve: Curves.elasticOut),
+          child: AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+            title: AnimatedBuilder(
+              animation: _fireworksController,
+              builder: (context, child) {
+                return Transform.scale(
+                  scale: 1.0 + (_fireworksController.value * 0.15),
+                  child: const Text(
+                    '🏆🎆 مبروك، أنت الفائز المبدع! 🎇✨',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 18, color: Colors.deepPurple, fontWeight: FontWeight.bold),
+                  ),
+                );
+              },
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'لقد أتممت الـ 50 سؤالاً بنجاح وأثبتّ أنك بروفيسور حقيقي في الرياضيات! 🌟💪',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 15),
+                ),
+                const SizedBox(height: 15),
+                Container(
+                  padding: const EdgeInsets.all(15),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'السكور النهائي: $currentScore / 50 🥇',
+                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade800, fontSize: 20),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              Center(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 35, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  ),
+                  onPressed: () {
+                    SystemSound.play(SystemSoundType.click);
+                    Navigator.pop(context);
+                    Navigator.pop(context);
+                  },
+                  child: const Text('العودة للرئيسية 🏠', style: TextStyle(fontSize: 16)),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _showGameOverDialog() {
@@ -323,7 +397,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 return Transform.scale(
                   scale: 1.0 + (_fireworksController.value * 0.15),
                   child: const Text(
-                    '🎆🎉 تفجير النقاط والألعاب النارية! 🎇✨',
+                    '🎆🎉 ألعاب نارية احتفالية! 🎇✨',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 18, color: Colors.deepPurple, fontWeight: FontWeight.bold),
                   ),
@@ -362,6 +436,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                   ),
                   onPressed: () {
+                    SystemSound.play(SystemSoundType.click);
                     Navigator.pop(context);
                     Navigator.pop(context);
                   },
@@ -377,13 +452,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    var theme = getCurrentTheme();
+    var levelInfo = getCurrentLevelInfo();
 
     return Scaffold(
-      backgroundColor: theme['bg'],
+      backgroundColor: levelInfo['bg'],
       appBar: AppBar(
         title: Text('${widget.userName} ✨'),
-        backgroundColor: theme['primary'],
+        backgroundColor: levelInfo['primary'],
         foregroundColor: Colors.white,
         centerTitle: true,
       ),
@@ -393,24 +468,24 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              '✨ ${theme['name']} ✨',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: theme['primary']),
+              'المستوى: ${levelInfo['name']} ⭐',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: levelInfo['primary']),
             ),
             const SizedBox(height: 10),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildScoreCard('النقاط الحالية 🔥', '$currentScore', theme['primary']),
+                _buildScoreCard('النقاط الحالية 🔥', '$currentScore / 50', levelInfo['primary']),
               ],
             ),
             const SizedBox(height: 25),
             Container(
               padding: const EdgeInsets.symmetric(vertical: 25, horizontal: 20),
               decoration: BoxDecoration(
-                color: theme['card'],
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
-                  BoxShadow(color: theme['primary'].withOpacity(0.15), blurRadius: 12, spreadRadius: 3)
+                  BoxShadow(color: levelInfo['primary'].withOpacity(0.15), blurRadius: 12, spreadRadius: 3)
                 ],
               ),
               child: Column(
@@ -421,7 +496,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     textDirection: TextDirection.ltr,
                     child: Text(
                       '($num1) $operator ($num2)',
-                      style: TextStyle(fontSize: 34, fontWeight: FontWeight.bold, color: theme['primary']),
+                      style: TextStyle(fontSize: 34, fontWeight: FontWeight.bold, color: levelInfo['primary']),
                     ),
                   ),
                 ],
@@ -434,8 +509,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: theme['card'],
-                    foregroundColor: theme['primary'],
+                    backgroundColor: Colors.white,
+                    foregroundColor: levelInfo['primary'],
                     elevation: 3,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
