@@ -24,6 +24,9 @@ jobs:
         channel: 'stable'
         cache: true
 
+    - name: Generate Android Files
+      run: flutter create . --org com.math.marathon --project-name math_marathon --platforms=android
+
     - name: Install Dependencies
       run: flutter pub get
 
