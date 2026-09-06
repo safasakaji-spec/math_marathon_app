@@ -38,7 +38,6 @@ class PlayerScore {
 }
 
 class LeaderboardData {
-  // قائمة تحفظ جميع اللاعبين وأعلى سكور لهم
   static List<PlayerScore> players = [];
 
   static void updateScore(String name, int score) {
@@ -55,11 +54,9 @@ class LeaderboardData {
         existingPlayer.score = score;
       }
     }
-    // ترتيب اللاعبين تنازلياً حسب أعلى سكور
     players.sort((a, b) => b.score.compareTo(a.score));
   }
 
-  // الحصول على أفضل 3 لاعبين
   static List<PlayerScore> getTopPlayers() {
     return players.take(3).toList();
   }
@@ -94,13 +91,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               ),
               const SizedBox(height: 6),
               const Text(
-                'تحدَّ نفسك في العمليات على الأعداد الصحيحة والقسمة!',
+                'تحدّ نفسك في العمليات على الأعداد الصحيحة',
                 style: TextStyle(fontSize: 13, color: Colors.grey),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
               
-              // لوحة أفضل 3 أبطال
               if (topPlayers.isNotEmpty) ...[
                 Container(
                   width: double.infinity,
@@ -108,12 +104,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                    boxShadow: [const BoxShadow(color: Colors.black12, blurRadius: 4)],
                   ),
                   child: Column(
                     children: [
                       const Text(
-                        '🏆 لوحة الشرف (أفضل 3 أبطال)',
+                        '🏆 لوحة الشرف (أفضل 3 لاعبين)',
                         style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.deepPurple),
                       ),
                       const Divider(),
@@ -141,7 +137,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               TextField(
                 controller: _nameController,
                 decoration: InputDecoration(
-                  labelText: 'اكتب اسمك البطل هنا...',
+                  labelText: 'اكتب اسمك هنا...',
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
@@ -158,13 +154,13 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
                 ),
                 onPressed: () {
                   String name = _nameController.text.trim();
-                  if (name.isEmpty) name = 'بطل الرياضيات';
+                  if (name.isEmpty) name = 'لاعب مجهول';
                   
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => GameScreen(userName: name)),
                   ).then((_) {
-                    setState(() {}); // تحديث لوحة الشرف عند العودة
+                    setState(() {});
                   });
                 },
                 child: const Text('ابدأ الماراثون 🚀', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -185,7 +181,7 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
-class _GameScreenState extends State<GameScreen> {
+class _GameScreenState extends State<GameScreen> with SingleTickerProviderStateMixin {
   final Random _random = Random();
   int num1 = 0;
   int num2 = 0;
@@ -195,14 +191,25 @@ class _GameScreenState extends State<GameScreen> {
   int currentScore = 0;
   List<int> options = [];
 
+  late AnimationController _fireworksController;
+
   @override
   void initState() {
     super.initState();
+    _fireworksController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
     _generateNewQuestion();
   }
 
+  @override
+  void dispose() {
+    _fireworksController.dispose();
+    super.dispose();
+  }
+
   void _generateNewQuestion() {
-    // إضافات العمليات تشمل الآن الجمع، الطرح، الضرب، والقسمة السهلة من جدول الضرب
     List<String> ops = ['+', '-', '×', '÷'];
     operator = ops[_random.nextInt(ops.length)];
 
@@ -219,11 +226,10 @@ class _GameScreenState extends State<GameScreen> {
       num2 = _random.nextInt(12) - 6;
       correctAnswer = num1 * num2;
     } else {
-      // أسئلة قسمة سهلة ونظيفة من جدول الضرب
-      num2 = _random.nextInt(10) + 1; // المقسوم عليه (بدون صفر)
-      int quotient = _random.nextInt(10) - 5; // الناتج
+      num2 = _random.nextInt(10) + 1;
+      int quotient = _random.nextInt(10) - 5;
       correctAnswer = quotient;
-      num1 = num2 * correctAnswer; // المقسوم ليقبل القسمة تماماً وبشكل سهل
+      num1 = num2 * correctAnswer;
     }
 
     Set<int> optionSet = {correctAnswer};
@@ -254,8 +260,16 @@ class _GameScreenState extends State<GameScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('انتهت اللعبة! 💔', textAlign: TextAlign.center),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+        title: AnimatedBuilder(
+          animation: _fireworksController,
+          builder: (context, child) {
+            return Transform.scale(
+              scale: 1.0 + (_fireworksController.value * 0.1),
+              child: const Text('🎉 انتهت اللعبة! 🎆', textAlign: TextAlign.center, style: TextStyle(color: Colors.deepPurple)),
+            );
+          },
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -265,9 +279,16 @@ class _GameScreenState extends State<GameScreen> {
               style: TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 15),
-            Text(
-              'نقاطك في هذه الجولة: $currentScore',
-              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepPurple, fontSize: 18),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.deepPurple.shade50,
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Text(
+                'السكور النهائي: $currentScore 🏆',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.deepPurple, fontSize: 20),
+              ),
             ),
           ],
         ),
@@ -277,13 +298,14 @@ class _GameScreenState extends State<GameScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.deepPurple,
                 foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
               ),
               onPressed: () {
-                Navigator.pop(context); // إغلاق النافذة
-                Navigator.pop(context); // العودة للرئيسية
+                Navigator.pop(context);
+                Navigator.pop(context);
               },
-              child: const Text('العودة للرئيسية 🏠'),
+              child: const Text('العودة للرئيسية 🏠', style: TextStyle(fontSize: 16)),
             ),
           ),
         ],
@@ -325,7 +347,6 @@ class _GameScreenState extends State<GameScreen> {
                 children: [
                   const Text('كم النتيجة؟', style: TextStyle(color: Colors.grey, fontSize: 16)),
                   const SizedBox(height: 15),
-                  // ضبط اتجاه عرض السؤال ليكون من اليسار لليمين
                   Directionality(
                     textDirection: TextDirection.ltr,
                     child: Text(
@@ -337,7 +358,6 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
             const SizedBox(height: 30),
-            // ضبط اتجاه الخيارات لتبدأ من اليسار (الإشارة السالبة والعدد)
             ...options.map((option) => Padding(
               padding: const EdgeInsets.symmetric(vertical: 5.0),
               child: SizedBox(
