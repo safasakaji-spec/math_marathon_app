@@ -128,10 +128,9 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _generateNewQuestion() {
-    setState({
-      isCorrectAnswer = null;
-    });
-
+    setState(() {
+  isCorrectAnswer = null;
+})
     // توليد أعداد صحيحة (موجبة وسالبة)
     num1 = _random.nextInt(30) - 15; // من -15 إلى 15
     num2 = _random.nextInt(30) - 15;
